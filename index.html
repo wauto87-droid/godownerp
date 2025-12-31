@@ -63,6 +63,27 @@
       border-radius: 6px;
       font-size: 14px;
       margin-bottom: 10px;
+      font-family: monospace;
+      background: white;
+    }
+
+    .debug-section {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+
+    .debug-section pre {
+      background: #1e1e1e;
+      color: #00ff00;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      max-height: 200px;
+      font-size: 11px;
     }
 
     .user-info {
@@ -78,6 +99,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
     }
 
     .login-form input, .login-form select {
@@ -97,12 +119,17 @@
       transition: all 0.3s ease;
     }
 
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .btn-primary {
       background: #667eea;
       color: white;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
       background: #5568d3;
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(102,126,234,0.4);
@@ -113,7 +140,7 @@
       color: white;
     }
 
-    .btn-secondary:hover {
+    .btn-secondary:hover:not(:disabled) {
       background: #5a6268;
     }
 
@@ -122,7 +149,7 @@
       color: white;
     }
 
-    .btn-success:hover {
+    .btn-success:hover:not(:disabled) {
       background: #218838;
     }
 
@@ -131,7 +158,7 @@
       color: white;
     }
 
-    .btn-danger:hover {
+    .btn-danger:hover:not(:disabled) {
       background: #c82333;
     }
 
@@ -155,6 +182,7 @@
       background: white;
       padding: 5px;
       border-radius: 10px;
+      flex-wrap: wrap;
     }
 
     .tab-btn {
@@ -169,7 +197,7 @@
       transition: all 0.3s ease;
     }
 
-    .tab-btn:hover {
+    .tab-btn:hover:not(.disabled) {
       background: #f0f0f0;
     }
 
@@ -445,18 +473,7 @@
       text-align: center;
       padding: 20px;
       color: #667eea;
-    }
-
-    .loading::after {
-      content: '...';
-      animation: dots 1.5s steps(5, end) infinite;
-    }
-
-    @keyframes dots {
-      0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-      40% { color: white; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-      60% { text-shadow: .25em 0 0 white, .5em 0 0 rgba(0,0,0,0), 1em 0 0 rgba(0,0,0,0); }
-      80%, 100% { text-shadow: .25em 0 0 white, .5em 0 0 white, 1em 0 0 white; }
+      font-weight: bold;
     }
 
     .role-badge {
@@ -508,11 +525,6 @@
       font-weight: bold;
     }
 
-    .transaction-adjust {
-      color: #ffc107;
-      font-weight: bold;
-    }
-
     footer {
       text-align: center;
       padding: 20px;
@@ -546,6 +558,15 @@
       table td {
         padding: 8px 10px;
       }
+
+      .login-form {
+        flex-direction: column;
+      }
+
+      .login-form input,
+      .login-form select {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -556,38 +577,54 @@
       <h1>🏗️ Godown ERP System</h1>
       <p>Stock & Logistics Management with Google Sheets</p>
       
-      <!-- NEW: Script URL Configuration -->
+      <!-- Script URL Configuration -->
       <div class="config-section">
         <h3>⚙️ Backend Configuration</h3>
         <label for="scriptUrlInput" style="font-weight: 600; margin-bottom: 5px; display: block;">
-          📡 Google Apps Script Web App URL:
+          📡 Google Apps Script Web App URL (must end with /exec):
         </label>
         <input 
           type="text" 
           id="scriptUrlInput" 
-          placeholder="https://script.google.com/macros/s/..."
-          style="font-family: monospace; font-size: 12px;"
+          placeholder="https://script.google.com/macros/s/.../exec"
+          style="font-family: monospace;"
         >
-        <button class="btn btn-success" onclick="saveScriptUrl()">
-          💾 Save & Connect
-        </button>
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+          <button class="btn btn-success" onclick="saveScriptUrl()" id="saveUrlBtn">
+            💾 Save URL
+          </button>
+          <button class="btn btn-secondary" onclick="testDirectUrl()" id="testUrlBtn">
+            🧪 Test URL
+          </button>
+        </div>
         <p style="font-size: 12px; color: #666; margin-top: 8px;">
-          💡 Tip: Get your URL from Google Apps Script → Deploy → Web App
+          💡 Get your URL from: Google Apps Script → Deploy → New Deployment → Web App<br>
+          <strong>IMPORTANT:</strong> Must be deployed as "Web App" not just saved!
         </p>
+      </div>
+      
+      <div class="debug-section">
+        <h3>🔍 Debug Console</h3>
+        <pre id="debugConsole">Debug logs will appear here...</pre>
+        <button class="btn btn-secondary btn-sm" onclick="clearDebug()" style="margin-top: 10px;">
+          🗑️ Clear
+        </button>
       </div>
       
       <div class="user-info">
         <div class="login-form">
-          <label for="userEmail">📧 Email:</label>
+          <label for="userEmail" style="font-weight: 600; margin-bottom: 5px;">📧 Email:</label>
           <input type="email" id="userEmail" placeholder="user@example.com" disabled>
-          <label for="userRole">👤 Role:</label>
+          
+          <label for="userRole" style="font-weight: 600; margin-bottom: 5px;">👤 Role:</label>
           <select id="userRole" disabled>
             <option value="SALESMAN">Salesman</option>
             <option value="GODOWN">Godown Keeper</option>
             <option value="ADMIN">Admin</option>
           </select>
+          
           <button class="btn btn-primary" onclick="login()" id="loginBtn" disabled>
-            Login
+            🔑 Login
           </button>
         </div>
       </div>
@@ -631,168 +668,23 @@
           </div>
           
           <div id="setupSection">
-            <h3>🔧 System Setup</h3>
+            <h3>🚀 System Setup</h3>
             <p>Initialize the system with demo data (creates all sheets and inserts demo users, items, and stock)</p>
             <button class="btn btn-primary" onclick="initializeSystem()">
               🚀 Initialize System
             </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Inventory Tab -->
-      <div id="inventoryTab" class="tab-content">
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>📦 Inventory Management</h2>
-            <button class="btn btn-primary" id="addItemBtn" onclick="openAddItemModal()" style="display: none;">
-              ➕ Add Item
-            </button>
-          </div>
-          
-          <div class="table-container">
-            <table id="inventoryTable">
-              <thead>
-                <tr>
-                  <th>Item Name</th>
-                  <th>Category</th>
-                  <th>Unit</th>
-                  <th>Min Stock</th>
-                  <th>Current Stock</th>
-                  <th>Reserved</th>
-                  <th>Available</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="inventoryTableBody">
-                <!-- Data will be loaded here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bookings Tab -->
-      <div id="bookingsTab" class="tab-content">
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>🛒 Bookings</h2>
-            <button class="btn btn-primary" id="createBookingBtn" onclick="openCreateBookingModal()" style="display: none;">
-              ➕ Create Booking
-            </button>
-          </div>
-          
-          <div class="table-container">
-            <table id="bookingsTable">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Date</th>
-                  <th>Shop</th>
-                  <th>Item</th>
-                  <th>Ordered Qty</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="bookingsTableBody">
-                <!-- Data will be loaded here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loadings Tab -->
-      <div id="loadingsTab" class="tab-content">
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>🚛 Loadings</h2>
-            <button class="btn btn-primary" id="createLoadingBtn" onclick="openCreateLoadingModal()" style="display: none;">
-              ➕ Create Loading
-            </button>
-          </div>
-          
-          <div class="table-container">
-            <table id="loadingsTable">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Booking ID</th>
-                  <th>Item</th>
-                  <th>Ordered</th>
-                  <th>Loaded</th>
-                  <th>Mode</th>
-                  <th>Vehicle No</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="loadingsTableBody">
-                <!-- Data will be loaded here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Transactions Tab -->
-      <div id="transactionsTab" class="tab-content">
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>💳 Transactions</h2>
-            <button class="btn btn-primary" id="createTransactionBtn" onclick="openCreateTransactionModal()" style="display: none;">
-              ➕ Create Transaction
-            </button>
-          </div>
-          
-          <div class="alert alert-warning">
-            ⚠️ <strong>IMPORTANT:</strong> Transactions are the ONLY way to change stock. All inventory values are calculated from transactions.
-          </div>
-          
-          <div class="table-container">
-            <table id="transactionsTable">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Item</th>
-                  <th>Quantity</th>
-                  <th>Source</th>
-                  <th>Handled By</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody id="transactionsTableBody">
-                <!-- Data will be loaded here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Audit Log Tab -->
-      <div id="auditTab" class="tab-content">
-        <div class="card">
-          <h2>📋 Audit Log</h2>
-          <div class="table-container">
-            <table id="auditTable">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>User</th>
-                  <th>Action</th>
-                  <th>Details</th>
-                  <th>Reference</th>
-                </tr>
-              </thead>
-              <tbody id="auditTableBody">
-                <!-- Data will be loaded here -->
-              </tbody>
-            </table>
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">
+              ⚠️ This may take 30-60 seconds to complete
+            </p>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Footer -->
+    <footer>
+      <p>🏗️ Godown ERP System - Transaction-Based Stock Control • Audit-Safe • Multi-User</p>
+    </footer>
   </div>
 
   <!-- Modals -->
@@ -842,7 +734,6 @@
         <label>Item *</label>
         <select id="newBookingItem">
           <option value="">Select an item...</option>
-          <!-- Options will be populated -->
         </select>
       </div>
       <div class="form-group">
@@ -863,7 +754,6 @@
         <label>Booking *</label>
         <select id="newLoadingBooking">
           <option value="">Select a booking...</option>
-          <!-- Options will be populated -->
         </select>
       </div>
       <div class="form-group">
@@ -921,7 +811,6 @@
         <label>Item *</label>
         <select id="newTransactionItem">
           <option value="">Select an item...</option>
-          <!-- Options will be populated -->
         </select>
       </div>
       <div class="form-group">
@@ -939,191 +828,254 @@
     </div>
   </div>
 
-  <footer>
-    <p>🏗️ Godown ERP System - Transaction-Based Stock Control • Audit-Safe • Multi-User</p>
-  </footer>
-
-   <script>
+  <script>
     // ============================================================================
-    // CONFIGURATION
+    // CONFIGURATION & DEBUGGING
     // ============================================================================
     
-    let SCRIPT_URL = '';  // Will be set by user input
+    let SCRIPT_URL = '';
     let currentUserEmail = '';
     let currentUserRole = '';
     let itemsData = [];
 
+    // Debug logging function
+    function debugLog(message, data = null) {
+      const timestamp = new Date().toLocaleTimeString();
+      let logMsg = `[${timestamp}] ${message}`;
+      if (data) {
+        logMsg += '\n' + JSON.stringify(data, null, 2);
+      }
+      
+      const consoleEl = document.getElementById('debugConsole');
+      consoleEl.textContent = logMsg + '\n' + consoleEl.textContent;
+      
+      console.log(message, data);
+    }
+
+    function clearDebug() {
+      document.getElementById('debugConsole').textContent = 'Debug logs will appear here...';
+    }
+
     // ============================================================================
-    // API CLIENT
+    // API CLIENT - ROBUST VERSION
     // ============================================================================
 
     class GoogleSheetsAPI {
       constructor(scriptUrl, userEmail) {
         this.scriptUrl = scriptUrl;
         this.userEmail = userEmail;
-        this.debug = false;
       }
 
+      /**
+       * Test connection to Apps Script
+       */
       async testConnection() {
         try {
-          console.log('🧪 Testing connection...');
-          const urlParams = new URLSearchParams({
-            action: 'getItems',
-            email: this.userEmail
-          });
+          debugLog('Testing connection...', { url: this.scriptUrl });
           
-          const testUrl = this.scriptUrl + '?' + urlParams.toString();
+          const testUrl = this.scriptUrl + '?action=getItems&email=' + encodeURIComponent(this.userEmail);
+          
+          debugLog('Fetching test URL...', { url: testUrl });
+          
           const response = await fetch(testUrl, {
-            method: 'POST',
-            mode: 'cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ test: true })
+            method: 'GET',
+            mode: 'no-cors'
           });
           
-          console.log('Test response status:', response.status);
-          const result = await response.json();
-          console.log('Test result:', result);
+          debugLog('Test response status...', { status: response.status, ok: response.ok });
           
-          return { success: true, result: result };
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+          
+          const result = await response.json();
+          debugLog('Test result...', result);
+          
+          return {
+            success: true,
+            message: 'Connection successful',
+            result: result
+          };
         } catch (error) {
-          console.error('Test failed:', error);
-          return { success: false, message: error.message };
+          debugLog('Connection test FAILED', error);
+          return {
+            success: false,
+            message: 'Connection failed: ' + error.message,
+            error: error
+          };
         }
       }
 
-      async request(action, data = null, params = {}) {
+      /**
+       * Simple GET request (more compatible)
+       */
+      async simpleGet(action, params = {}) {
         try {
-          console.log('📤 Request:', action);
-          
           const urlParams = new URLSearchParams({
             action: action,
             email: this.userEmail,
             ...params
           });
           
-          let url = this.scriptUrl + '?' + urlParams.toString();
-          let requestBody = null;
-          let requestMethod = 'POST';
+          const url = this.scriptUrl + '?' + urlParams.toString();
           
-          if (data) {
-            requestBody = JSON.stringify(data);
-          } else {
-            requestMethod = 'GET';
-          }
+          debugLog(`Making GET request: ${action}...`, { url });
           
-          const fetchOptions = {
-            method: requestMethod,
-            mode: 'cors',
-            headers: { 'Content-Type': 'application/json' }
-          };
+          const response = await fetch(url, {
+            method: 'GET',
+            mode: 'no-cors',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
           
-          if (requestMethod === 'POST' && requestBody) {
-            fetchOptions.body = requestBody;
-          }
-          
-          console.log('Fetching:', url);
-          const response = await fetch(url, fetchOptions);
-          console.log('Response:', response.status);
+          debugLog(`Response: ${action}`, { status: response.status, ok: response.ok });
           
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
           }
           
           const result = await response.json();
-          console.log('Response data:', result);
+          debugLog(`Result: ${action}`, result);
           
           if (!result.success) {
-            throw new Error(result.message || 'Request failed');
+            throw new Error(result.message || 'API returned error');
           }
           
           return result;
         } catch (error) {
-          console.error('❌ Request failed:', error);
+          debugLog(`GET ${action} FAILED`, error);
+          throw error;
+        }
+      }
+
+      /**
+       * POST request with JSON body
+       */
+      async postRequest(action, data = null) {
+        try {
+          const urlParams = new URLSearchParams({
+            action: action,
+            email: this.userEmail
+          });
+          
+          const url = this.scriptUrl + '?' + urlParams.toString();
+          
+          debugLog(`Making POST request: ${action}...`, { url, data });
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+          });
+          
+          debugLog(`Response: ${action}`, { status: response.status, ok: response.ok });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+          
+          const result = await response.json();
+          debugLog(`Result: ${action}`, result);
+          
+          if (!result.success) {
+            throw new Error(result.message || 'API returned error');
+          }
+          
+          return result;
+        } catch (error) {
+          debugLog(`POST ${action} FAILED`, error);
           throw error;
         }
       }
 
       async initialize() {
-        return this.request('initialize');
+        return this.simpleGet('initialize');
       }
 
       async getItems() {
-        return this.request('getItems');
+        return this.simpleGet('getItems');
       }
 
       async addItem(itemData) {
-        return this.request('addItem', itemData);
+        return this.postRequest('addItem', itemData);
       }
 
       async getUsers() {
-        return this.request('getUsers');
+        return this.simpleGet('getUsers');
       }
 
       async getBookings(filters = {}) {
-        return this.request('getBookings', null, filters);
+        return this.simpleGet('getBookings', filters);
       }
 
       async createBooking(bookingData) {
-        return this.request('createBooking', bookingData);
+        return this.postRequest('createBooking', bookingData);
       }
 
       async updateBookingStatus(bookingId, action) {
-        return this.request('updateBookingStatus', {
+        return this.postRequest('updateBookingStatus', {
           bookingId,
           action
         });
       }
 
       async getLoadings(filters = {}) {
-        return this.request('getLoadings', null, filters);
+        return this.simpleGet('getLoadings', filters);
       }
 
       async createLoading(loadingData) {
-        return this.request('createLoading', loadingData);
+        return this.postRequest('createLoading', loadingData);
       }
 
       async getTransactions(filters = {}) {
-        return this.request('getTransactions', null, filters);
+        return this.simpleGet('getTransactions', filters);
       }
 
       async createTransaction(transactionData) {
-        return this.request('createTransaction', transactionData);
+        return this.postRequest('createTransaction', transactionData);
       }
 
       async getInventory() {
-        return this.request('getInventory');
+        return this.simpleGet('getInventory');
       }
 
       async getDispatch(filters = {}) {
-        return this.request('getDispatch', null, filters);
+        return this.simpleGet('getDispatch', filters);
       }
 
       async createDispatch(dispatchData) {
-        return this.request('createDispatch', dispatchData);
+        return this.postRequest('createDispatch', dispatchData);
       }
 
       async getReturns(filters = {}) {
-        return this.request('getReturns', null, filters);
+        return this.simpleGet('getReturns', filters);
       }
 
       async createReturn(returnData) {
-        return this.request('createReturn', returnData);
+        return this.postRequest('createReturn', returnData);
       }
 
       async generateDeliveryNote(loadId) {
-        return this.request('generateDeliveryNote', { loadId });
+        return this.postRequest('generateDeliveryNote', { loadId });
       }
 
       async exportSheet(sheetName) {
-        return this.request('exportSheet', null, { sheetName });
+        return this.simpleGet('exportSheet', { sheetName });
       }
 
       async importItems(items) {
-        return this.request('importItems', { items });
+        return this.postRequest('importItems', { items });
       }
 
       async getAuditLog(limit = 100) {
-        return this.request('getAuditLog', null, { limit });
+        return this.simpleGet('getAuditLog', { limit });
       }
     }
 
@@ -1137,31 +1089,38 @@
       const urlInput = document.getElementById('scriptUrlInput');
       const url = urlInput.value.trim();
       
-      console.log('💾 Saving Script URL:', url);
+      debugLog('Saving script URL...', { url });
       
       if (!url) {
         alert('❌ Please enter your Google Apps Script Web App URL');
         return;
       }
       
-      // Basic URL validation
+      // Validation
+      const warnings = [];
+      
       if (!url.includes('script.google.com') && !url.includes('google.com')) {
-        alert('⚠️ Warning: This URL does not look like a Google Apps Script URL.\n\nPlease copy the exact URL from:\nGoogle Apps Script → Deploy → Web App');
+        warnings.push('URL does not look like a Google Apps Script URL');
       }
       
       if (!url.includes('/exec')) {
-        alert('⚠️ Warning: URL should end with /exec\n\nYour URL: ' + url);
+        warnings.push('URL should end with /exec');
+      }
+      
+      if (warnings.length > 0) {
+        alert('⚠️ Potential issues:\n\n' + warnings.join('\n') + '\n\nContinue anyway?');
+        return;
       }
       
       // Save to localStorage
       localStorage.setItem('godown_erp_script_url', url);
       
-      // Enable login
-      document.getElementById('loginBtn').disabled = false;
-      document.getElementById('userEmail').disabled = false;
-      document.getElementById('userRole').disabled = false;
+      // Enable test and save buttons
+      document.getElementById('testUrlBtn').disabled = false;
+      document.getElementById('saveUrlBtn').textContent = '✅ URL Ready';
       
-      alert('✅ Script URL saved!\n\n💡 You can now login.');
+      // Test connection
+      testConnection();
     }
 
     function loadScriptUrl() {
@@ -1169,49 +1128,55 @@
       
       if (savedUrl) {
         document.getElementById('scriptUrlInput').value = savedUrl;
-        document.getElementById('loginBtn').disabled = false;
-        document.getElementById('userEmail').disabled = false;
-        document.getElementById('userRole').disabled = false;
+        document.getElementById('testUrlBtn').disabled = false;
+        document.getElementById('saveUrlBtn').textContent = '✅ URL Ready';
+        
+        // Test connection on load
+        testConnection();
       }
     }
-
-    // ============================================================================
-    // TEST CONNECTION FUNCTION
-    // ============================================================================
 
     async function testConnection() {
       const url = document.getElementById('scriptUrlInput').value.trim();
       
       if (!url) {
-        alert('❌ Please enter your Google Apps Script Web App URL first');
+        alert('❌ Please enter URL first');
         return;
       }
       
-      // Show loading indicator
-      const testBtn = event.target;
+      // Show loading state
+      const testBtn = document.getElementById('testUrlBtn');
       testBtn.textContent = '🧪 Testing...';
       testBtn.disabled = true;
       
-      try {
-        // Create temp API instance for testing
-        const testApi = new GoogleSheetsAPI(url, 'test@example.com');
-        const result = await testApi.testConnection();
-        
-        if (result.success) {
-          alert('✅ Connection successful!\n\nYour Apps Script URL is working correctly.');
-          document.getElementById('loginBtn').disabled = false;
-          document.getElementById('userEmail').disabled = false;
-          document.getElementById('userRole').disabled = false;
-        } else {
-          alert('❌ Connection failed!\n\nError: ' + result.message + '\n\nPlease check:\n1. URL is correct\n2. Apps Script is deployed\n3. Access is set to "Anyone with Google account"');
-        }
-      } catch (error) {
-        alert('❌ Connection failed!\n\nError: ' + error.message + '\n\nPlease check console for details.');
-        console.error('Connection test error:', error);
+      // Create temp API instance for testing
+      const testApi = new GoogleSheetsAPI(url, 'test@example.com');
+      const result = await testApi.testConnection();
+      
+      testBtn.textContent = '🧪 Test URL';
+      testBtn.disabled = false;
+      
+      if (result.success) {
+        alert('✅ Connection successful!\n\nYour Apps Script URL is working correctly.\n\nYou can now login.');
+        document.getElementById('loginBtn').disabled = false;
+        document.getElementById('userEmail').disabled = false;
+        document.getElementById('userRole').disabled = false;
+      } else {
+        alert('❌ Connection failed!\n\nError: ' + result.message + '\n\nPlease check:\n1. URL is correct (ends with /exec)\n2. Apps Script is deployed as Web App\n3. Access is set to "Anyone with Google account"');
+      }
+    }
+
+    async function testDirectUrl() {
+      const url = document.getElementById('scriptUrlInput').value.trim();
+      
+      if (!url) {
+        alert('❌ Please enter URL first');
+        return;
       }
       
-      testBtn.textContent = '🧪 Test Connection';
-      testBtn.disabled = false;
+      // Open in new tab with test query
+      const testUrl = url + '?action=getItems&email=' + encodeURIComponent('test@example.com');
+      window.open(testUrl, '_blank');
     }
 
     // ============================================================================
@@ -1223,11 +1188,6 @@
       const role = document.getElementById('userRole').value;
       const url = document.getElementById('scriptUrlInput').value.trim();
 
-      console.log('🔑 Logging in...');
-      console.log('Email:', email);
-      console.log('Role:', role);
-      console.log('Script URL:', url);
-
       if (!email) {
         alert('❌ Please enter your email');
         return;
@@ -1237,6 +1197,8 @@
         alert('❌ Please enter your Google Apps Script Web App URL');
         return;
       }
+
+      debugLog('Logging in...', { email, role, url });
 
       currentUserEmail = email;
       currentUserRole = role;
@@ -1250,9 +1212,8 @@
 
       document.getElementById('mainContent').style.display = 'block';
       updateUIForRole();
-      loadAllData();
       
-      alert('✅ Logged in successfully as ' + role);
+      loadAllData();
     }
 
     function updateUIForRole() {
@@ -1290,93 +1251,112 @@
     // ============================================================================
 
     async function loadAllData() {
-      console.log('📊 Loading all data...');
       try {
         await Promise.all([
           loadItems(),
           loadBookings(),
           loadLoadings(),
           loadTransactions(),
-          loadInventory(),
-          loadAuditLog()
+          loadInventory()
         ]);
-        console.log('✅ All data loaded successfully');
       } catch (error) {
-        console.error('❌ Error loading data:', error);
-        alert('❌ Error loading data: ' + error.message);
+        console.error('Error loading data:', error);
+        debugLog('Error loading data', error);
       }
     }
 
     async function loadItems() {
       try {
+        debugLog('Loading items...');
         const result = await api.getItems();
         itemsData = result.items || [];
         populateItemSelects();
-        console.log('✅ Items loaded:', itemsData.length);
+        debugLog('Items loaded', { count: itemsData.length });
       } catch (error) {
-        console.error('❌ Error loading items:', error);
+        console.error('Error loading items:', error);
+        debugLog('Error loading items', error);
       }
     }
 
     async function loadBookings() {
       try {
+        debugLog('Loading bookings...');
         const result = await api.getBookings();
         const bookings = result.bookings || [];
         renderBookings(bookings);
         updateStats();
         populateBookingSelect(bookings);
-        console.log('✅ Bookings loaded:', bookings.length);
+        debugLog('Bookings loaded', { count: bookings.length });
       } catch (error) {
-        console.error('❌ Error loading bookings:', error);
+        console.error('Error loading bookings:', error);
+        debugLog('Error loading bookings', error);
       }
     }
 
     async function loadLoadings() {
       try {
+        debugLog('Loading loadings...');
         const result = await api.getLoadings();
         const loadings = result.loadings || [];
         renderLoadings(loadings);
         updateStats();
-        console.log('✅ Loadings loaded:', loadings.length);
+        debugLog('Loadings loaded', { count: loadings.length });
       } catch (error) {
-        console.error('❌ Error loading loadings:', error);
+        console.error('Error loading loadings:', error);
+        debugLog('Error loading loadings', error);
       }
     }
 
     async function loadTransactions() {
       try {
+        debugLog('Loading transactions...');
         const result = await api.getTransactions();
         const transactions = result.transactions || [];
         renderTransactions(transactions);
         updateStats();
-        console.log('✅ Transactions loaded:', transactions.length);
+        debugLog('Transactions loaded', { count: transactions.length });
       } catch (error) {
-        console.error('❌ Error loading transactions:', error);
+        console.error('Error loading transactions:', error);
+        debugLog('Error loading transactions', error);
       }
     }
 
     async function loadInventory() {
       try {
+        debugLog('Loading inventory...');
         const result = await api.getInventory();
         const inventory = result.inventory || [];
         renderInventory(inventory);
         updateStats();
-        console.log('✅ Inventory loaded:', inventory.length);
+        debugLog('Inventory loaded', { count: inventory.length });
       } catch (error) {
-        console.error('❌ Error loading inventory:', error);
+        console.error('Error loading inventory:', error);
+        debugLog('Error loading inventory', error);
       }
     }
 
-    async function loadAuditLog() {
-      if (currentUserRole !== 'ADMIN') return;
-
+    async function initializeSystem() {
       try {
-        const result = await api.getAuditLog();
-        const logs = result.auditLogs || [];
-        renderAuditLog(logs);
-        console.log('✅ Audit log loaded:', logs.length);
+        if (!confirm('This will create all sheets and insert demo data.\n\n⚠️ This may take 30-60 seconds.\n\nContinue?')) {
+          return;
+        }
+        
+        debugLog('Initializing system...');
+        
+        const result = await api.initialize();
+        
+        if (result.success) {
+          debugLog('System initialized successfully');
+          alert('✅ System initialized successfully!');
+          await loadAllData();
+        } else {
+          debugLog('System initialization FAILED', result);
+          alert('❌ System initialization failed!\n\n' + result.message);
+        }
       } catch (error) {
-        console.error('❌ Error loading audit log:', error);
+        console.error('Error initializing system:', error);
+        debugLog('Error initializing system', error);
+        alert('❌ Error initializing system: ' + error.message);
       }
     }
 
@@ -1490,25 +1470,6 @@
       }).join('');
     }
 
-    function renderAuditLog(logs) {
-      const tbody = document.getElementById('auditTableBody');
-      
-      if (!logs || logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No audit logs found</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = logs.map(log => `
-        <tr>
-          <td>${new Date(log.date).toLocaleString()}</td>
-          <td>${log.userEmail}</td>
-          <td><strong>${log.action}</strong></td>
-          <td><small>${log.details || '-'}</small></td>
-          <td><small>${log.referenceId || '-'}</small></td>
-        </tr>
-      `).join('');
-    }
-
     function updateStats() {
       document.getElementById('totalItems').textContent = itemsData.length;
     }
@@ -1602,24 +1563,6 @@
     // ACTIONS
     // ============================================================================
 
-    async function initializeSystem() {
-      try {
-        if (!confirm('This will create all sheets and insert demo data. Continue?')) {
-          return;
-        }
-        
-        console.log('🚀 Initializing system...');
-        const result = await api.initialize();
-        console.log('Initialization result:', result);
-        
-        alert('✅ ' + result.message);
-        await loadAllData();
-      } catch (error) {
-        console.error('❌ Error initializing system:', error);
-        alert('❌ Error initializing system: ' + error.message);
-      }
-    }
-
     async function saveNewItem() {
       try {
         const itemData = {
@@ -1635,16 +1578,17 @@
           return;
         }
 
-        console.log('💾 Saving item:', itemData);
+        debugLog('Saving new item...', itemData);
         const result = await api.addItem(itemData);
-        console.log('Save result:', result);
+        debugLog('Item save result', result);
         
         alert('✅ Item added successfully!');
         closeModal('addItemModal');
         await loadItems();
         await loadInventory();
       } catch (error) {
-        console.error('❌ Error adding item:', error);
+        console.error('Error adding item:', error);
+        debugLog('Error adding item', error);
         alert('❌ Error adding item: ' + error.message);
       }
     }
@@ -1662,16 +1606,17 @@
           return;
         }
 
-        console.log('📝 Creating booking:', bookingData);
+        debugLog('Saving new booking...', bookingData);
         const result = await api.createBooking(bookingData);
-        console.log('Booking result:', result);
+        debugLog('Booking save result', result);
         
         alert('✅ Booking created successfully!');
         closeModal('createBookingModal');
         await loadBookings();
         await loadInventory();
       } catch (error) {
-        console.error('❌ Error creating booking:', error);
+        console.error('Error creating booking:', error);
+        debugLog('Error creating booking', error);
         alert('❌ Error creating booking: ' + error.message);
       }
     }
@@ -1691,9 +1636,9 @@
           return;
         }
 
-        console.log('🚚 Creating loading:', loadingData);
+        debugLog('Saving new loading...', loadingData);
         const result = await api.createLoading(loadingData);
-        console.log('Loading result:', result);
+        debugLog('Loading save result', result);
         
         alert('✅ Loading created successfully! Stock updated via OUT transaction.');
         closeModal('createLoadingModal');
@@ -1702,7 +1647,8 @@
         await loadInventory();
         await loadTransactions();
       } catch (error) {
-        console.error('❌ Error creating loading:', error);
+        console.error('Error creating loading:', error);
+        debugLog('Error creating loading', error);
         alert('❌ Error creating loading: ' + error.message);
       }
     }
@@ -1722,16 +1668,17 @@
           return;
         }
 
-        console.log('💳 Creating transaction:', transactionData);
+        debugLog('Saving new transaction...', transactionData);
         const result = await api.createTransaction(transactionData);
-        console.log('Transaction result:', result);
+        debugLog('Transaction save result', result);
         
         alert('✅ Transaction created successfully! Stock updated.');
         closeModal('createTransactionModal');
         await loadTransactions();
         await loadInventory();
       } catch (error) {
-        console.error('❌ Error creating transaction:', error);
+        console.error('Error creating transaction:', error);
+        debugLog('Error creating transaction', error);
         alert('❌ Error creating transaction: ' + error.message);
       }
     }
@@ -1742,10 +1689,15 @@
           return;
         }
         
+        debugLog('Approving booking...', { bookingId });
         const result = await api.updateBookingStatus(bookingId, 'APPROVE');
+        debugLog('Booking approval result', result);
+        
         alert('✅ Booking approved!');
         await loadBookings();
       } catch (error) {
+        console.error('Error approving booking:', error);
+        debugLog('Error approving booking', error);
         alert('❌ Error approving booking: ' + error.message);
       }
     }
@@ -1756,10 +1708,15 @@
           return;
         }
         
+        debugLog('Rejecting booking...', { bookingId });
         const result = await api.updateBookingStatus(bookingId, 'REJECT');
+        debugLog('Booking rejection result', result);
+        
         alert('✅ Booking rejected!');
         await loadBookings();
       } catch (error) {
+        console.error('Error rejecting booking:', error);
+        debugLog('Error rejecting booking', error);
         alert('❌ Error rejecting booking: ' + error.message);
       }
     }
@@ -1822,21 +1779,8 @@
     // ============================================================================
 
     window.onload = function() {
-      console.log('📄 Page loaded');
+      debugLog('Page loaded');
       loadScriptUrl();
-      
-      const savedEmail = localStorage.getItem('godown_erp_user_email');
-      const savedRole = localStorage.getItem('godown_erp_user_role');
-      
-      if (savedEmail) {
-        document.getElementById('userEmail').value = savedEmail;
-      }
-      
-      if (savedRole) {
-        document.getElementById('userRole').value = savedRole;
-      }
-      
-      console.log('🎯 Ready to use!');
     };
   </script>
 </body>
