@@ -42,6 +42,29 @@
       font-size: 14px;
     }
 
+    .config-section {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .config-section h3 {
+      color: #856404;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+
+    .config-section input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
     .user-info {
       display: flex;
       justify-content: space-between;
@@ -533,17 +556,39 @@
       <h1>🏗️ Godown ERP System</h1>
       <p>Stock & Logistics Management with Google Sheets</p>
       
+      <!-- NEW: Script URL Configuration -->
+      <div class="config-section">
+        <h3>⚙️ Backend Configuration</h3>
+        <label for="scriptUrlInput" style="font-weight: 600; margin-bottom: 5px; display: block;">
+          📡 Google Apps Script Web App URL:
+        </label>
+        <input 
+          type="text" 
+          id="scriptUrlInput" 
+          placeholder="https://script.google.com/macros/s/..."
+          style="font-family: monospace; font-size: 12px;"
+        >
+        <button class="btn btn-success" onclick="saveScriptUrl()">
+          💾 Save & Connect
+        </button>
+        <p style="font-size: 12px; color: #666; margin-top: 8px;">
+          💡 Tip: Get your URL from Google Apps Script → Deploy → Web App
+        </p>
+      </div>
+      
       <div class="user-info">
         <div class="login-form">
           <label for="userEmail">📧 Email:</label>
-          <input type="email" id="userEmail" placeholder="user@example.com">
+          <input type="email" id="userEmail" placeholder="user@example.com" disabled>
           <label for="userRole">👤 Role:</label>
-          <select id="userRole">
+          <select id="userRole" disabled>
             <option value="SALESMAN">Salesman</option>
             <option value="GODOWN">Godown Keeper</option>
             <option value="ADMIN">Admin</option>
           </select>
-          <button class="btn btn-primary" onclick="login()">Login</button>
+          <button class="btn btn-primary" onclick="login()" id="loginBtn" disabled>
+            Login
+          </button>
         </div>
       </div>
     </div>
@@ -557,7 +602,9 @@
         <button class="tab-btn" onclick="showTab('bookings')">🛒 Bookings</button>
         <button class="tab-btn" onclick="showTab('loadings')">🚛 Loadings</button>
         <button class="tab-btn" onclick="showTab('transactions')">💳 Transactions</button>
-        <button class="tab-btn id="auditTab" onclick="showTab('audit')" style="display: none;">📋 Audit Log</button>
+        <button class="tab-btn" id="auditTab" onclick="showTab('audit')" style="display: none;">
+          📋 Audit Log
+        </button>
       </div>
 
       <!-- Dashboard Tab -->
@@ -585,7 +632,7 @@
           
           <div id="setupSection">
             <h3>🔧 System Setup</h3>
-            <p>Initialize the system with demo data (create all sheets and insert demo users, items, and stock)</p>
+            <p>Initialize the system with demo data (creates all sheets and inserts demo users, items, and stock)</p>
             <button class="btn btn-primary" onclick="initializeSystem()">
               🚀 Initialize System
             </button>
@@ -901,9 +948,7 @@
     // CONFIGURATION
     // ============================================================================
     
-    // REPLACE THIS WITH YOUR ACTUAL WEB APP URL AFTER DEPLOYMENT
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkzBnheh4Tv3SZ7C3OPwC6Io9JVXD9T6YD3uUXtK-znMSnehygLz1Z93UYQOyRDauh/exec';
-
+    let SCRIPT_URL = '';  // Will be set by user input
     let currentUserEmail = '';
     let currentUserRole = '';
     let itemsData = [];
@@ -920,14 +965,22 @@
 
       async request(action, data = null, params = {}) {
         try {
-          let url = this.scriptUrl;
-          const queryParams = new URLSearchParams(params).toString();
-          if (queryParams) {
-            url += '?' + queryParams;
-          }
-
+          // Build URL with action and email as query parameters
+          const urlParams = new URLSearchParams({
+            action: action,
+            email: this.userEmail,
+            ...params
+          });
+          
+          const url = this.scriptUrl + '?' + urlParams.toString();
+          
+          // Prepare request body
           const requestBody = data ? JSON.stringify({ ...data }) : null;
-
+          
+          console.log('📤 Request URL:', url);
+          console.log('📤 Request Body:', requestBody);
+          
+          // Make fetch request
           const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -935,16 +988,17 @@
             },
             body: requestBody
           });
-
+          
           const result = await response.json();
-
+          console.log('📥 Response:', result);
+          
           if (!result.success) {
             throw new Error(result.message || 'Request failed');
           }
-
+          
           return result;
         } catch (error) {
-          console.error('API Error:', error);
+          console.error('❌ API Error:', error);
           throw error;
         }
       }
@@ -961,8 +1015,12 @@
         return this.request('addItem', itemData);
       }
 
-      async getBookings() {
-        return this.request('getBookings');
+      async getUsers() {
+        return this.request('getUsers');
+      }
+
+      async getBookings(filters = {}) {
+        return this.request('getBookings', null, filters);
       }
 
       async createBooking(bookingData) {
@@ -970,19 +1028,22 @@
       }
 
       async updateBookingStatus(bookingId, action) {
-        return this.request('updateBookingStatus', { bookingId, action });
+        return this.request('updateBookingStatus', {
+          bookingId,
+          action
+        });
       }
 
-      async getLoadings() {
-        return this.request('getLoadings');
+      async getLoadings(filters = {}) {
+        return this.request('getLoadings', null, filters);
       }
 
       async createLoading(loadingData) {
         return this.request('createLoading', loadingData);
       }
 
-      async getTransactions() {
-        return this.request('getTransactions');
+      async getTransactions(filters = {}) {
+        return this.request('getTransactions', null, filters);
       }
 
       async createTransaction(transactionData) {
@@ -993,12 +1054,78 @@
         return this.request('getInventory');
       }
 
-      async getAuditLog() {
-        return this.request('getAuditLog', null, { limit: 100 });
+      async getDispatch(filters = {}) {
+        return this.request('getDispatch', null, filters);
+      }
+
+      async createDispatch(dispatchData) {
+        return this.request('createDispatch', dispatchData);
+      }
+
+      async getReturns(filters = {}) {
+        return this.request('getReturns', null, filters);
+      }
+
+      async createReturn(returnData) {
+        return this.request('createReturn', returnData);
+      }
+
+      async generateDeliveryNote(loadId) {
+        return this.request('generateDeliveryNote', { loadId });
+      }
+
+      async exportSheet(sheetName) {
+        return this.request('exportSheet', null, { sheetName });
+      }
+
+      async importItems(items) {
+        return this.request('importItems', { items });
+      }
+
+      async getAuditLog(limit = 100) {
+        return this.request('getAuditLog', null, { limit });
       }
     }
 
     let api = null;
+
+    // ============================================================================
+    // SCRIPT URL MANAGEMENT
+    // ============================================================================
+
+    function saveScriptUrl() {
+      const urlInput = document.getElementById('scriptUrlInput');
+      const url = urlInput.value.trim();
+      
+      if (!url) {
+        alert('❌ Please enter your Google Apps Script Web App URL');
+        return;
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('godown_erp_script_url', url);
+      
+      // Enable login
+      document.getElementById('loginBtn').disabled = false;
+      document.getElementById('userEmail').disabled = false;
+      document.getElementById('userRole').disabled = false;
+      
+      // Test connection
+      alert('✅ Script URL saved! You can now login.');
+      console.log('✅ Saved Script URL:', url);
+    }
+
+    function loadScriptUrl() {
+      // Try to load from localStorage first
+      const savedUrl = localStorage.getItem('godown_erp_script_url');
+      
+      if (savedUrl) {
+        document.getElementById('scriptUrlInput').value = savedUrl;
+        document.getElementById('loginBtn').disabled = false;
+        document.getElementById('userEmail').disabled = false;
+        document.getElementById('userRole').disabled = false;
+      }
+    }
 
     // ============================================================================
     // AUTHENTICATION & INITIALIZATION
@@ -1007,23 +1134,36 @@
     function login() {
       const email = document.getElementById('userEmail').value.trim();
       const role = document.getElementById('userRole').value;
+      const url = document.getElementById('scriptUrlInput').value.trim();
 
       if (!email) {
-        alert('Please enter your email');
+        alert('❌ Please enter your email');
+        return;
+      }
+
+      if (!url) {
+        alert('❌ Please enter your Google Apps Script URL');
         return;
       }
 
       currentUserEmail = email;
       currentUserRole = role;
+      SCRIPT_URL = url;
       api = new GoogleSheetsAPI(SCRIPT_URL, email);
+
+      // Save to localStorage for next time
+      localStorage.setItem('godown_erp_script_url', url);
+      localStorage.setItem('godown_erp_user_email', email);
+      localStorage.setItem('godown_erp_user_role', role);
 
       document.getElementById('mainContent').style.display = 'block';
       updateUIForRole();
       loadAllData();
+      
+      alert('✅ Logged in successfully as ' + role);
     }
 
     function updateUIForRole() {
-      // Show/hide features based on role
       const addItemBtn = document.getElementById('addItemBtn');
       const createBookingBtn = document.getElementById('createBookingBtn');
       const createLoadingBtn = document.getElementById('createLoadingBtn');
@@ -1069,7 +1209,7 @@
           loadAuditLog()
         ]);
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('❌ Error loading data:', error);
       }
     }
 
@@ -1079,7 +1219,7 @@
         itemsData = result.items || [];
         populateItemSelects();
       } catch (error) {
-        console.error('Error loading items:', error);
+        console.error('❌ Error loading items:', error);
       }
     }
 
@@ -1091,7 +1231,7 @@
         updateStats();
         populateBookingSelect(bookings);
       } catch (error) {
-        console.error('Error loading bookings:', error);
+        console.error('❌ Error loading bookings:', error);
       }
     }
 
@@ -1102,7 +1242,7 @@
         renderLoadings(loadings);
         updateStats();
       } catch (error) {
-        console.error('Error loading loadings:', error);
+        console.error('❌ Error loading loadings:', error);
       }
     }
 
@@ -1113,7 +1253,7 @@
         renderTransactions(transactions);
         updateStats();
       } catch (error) {
-        console.error('Error loading transactions:', error);
+        console.error('❌ Error loading transactions:', error);
       }
     }
 
@@ -1124,7 +1264,7 @@
         renderInventory(inventory);
         updateStats();
       } catch (error) {
-        console.error('Error loading inventory:', error);
+        console.error('❌ Error loading inventory:', error);
       }
     }
 
@@ -1136,7 +1276,7 @@
         const logs = result.auditLogs || [];
         renderAuditLog(logs);
       } catch (error) {
-        console.error('Error loading audit log:', error);
+        console.error('❌ Error loading audit log:', error);
       }
     }
 
@@ -1350,7 +1490,6 @@
     function closeModal(modalId) {
       document.getElementById(modalId).classList.remove('active');
       
-      // Clear form inputs
       if (modalId === 'addItemModal') {
         document.getElementById('newItemName').value = '';
         document.getElementById('newItemCategory').value = '';
@@ -1388,7 +1527,7 @@
         };
 
         if (!itemData.itemName || !itemData.category || !itemData.unit) {
-          alert('Please fill in all required fields');
+          alert('❌ Please fill in all required fields');
           return;
         }
 
@@ -1411,7 +1550,7 @@
         };
 
         if (!bookingData.shop || !bookingData.itemId || bookingData.orderedQty <= 0) {
-          alert('Please fill in all required fields');
+          alert('❌ Please fill in all required fields');
           return;
         }
 
@@ -1429,14 +1568,14 @@
       try {
         const loadingData = {
           bookingId: document.getElementById('newLoadingBooking').value,
-          itemId: '', // Will be fetched from booking
+          itemId: '',
           loadedQty: parseInt(document.getElementById('newLoadingQty').value) || 0,
           dispatchMode: document.getElementById('newLoadingMode').value,
           vehicleNo: document.getElementById('newLoadingVehicle').value.trim()
         };
 
         if (!loadingData.bookingId || loadingData.loadedQty <= 0) {
-          alert('Please fill in all required fields');
+          alert('❌ Please fill in all required fields');
           return;
         }
 
@@ -1463,7 +1602,7 @@
         };
 
         if (!transactionData.itemId || transactionData.quantity === 0) {
-          alert('Please fill in all required fields');
+          alert('❌ Please fill in all required fields');
           return;
         }
 
@@ -1510,20 +1649,15 @@
     // ============================================================================
 
     function showTab(tabName) {
-      // Hide all tabs
       document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
       });
       
-      // Deactivate all buttons
       document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
       });
       
-      // Show selected tab
       document.getElementById(tabName + 'Tab').classList.add('active');
-      
-      // Activate button
       event.target.classList.add('active');
     }
 
@@ -1531,13 +1665,11 @@
     // EVENT LISTENERS
     // ============================================================================
 
-    // Update max quantity when booking is selected
     document.getElementById('newLoadingBooking').addEventListener('change', function() {
       const bookingId = this.value;
       const maxQtySpan = document.getElementById('loadingMaxQty');
       
       if (bookingId) {
-        // Find booking data from dropdown
         const selectedOption = this.options[this.selectedIndex];
         const text = selectedOption.textContent;
         const match = text.match(/\((\d+)\s+(\w+)\)$/);
@@ -1549,7 +1681,6 @@
       }
     });
 
-    // Handle click outside modal to close
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', function(e) {
         if (e.target === overlay) {
@@ -1558,7 +1689,6 @@
       });
     });
 
-    // Close modal on Escape key
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay.active').forEach(modal => {
@@ -1566,6 +1696,27 @@
         });
       }
     });
+
+    // ============================================================================
+    // PAGE LOAD
+    // ============================================================================
+
+    window.onload = function() {
+      console.log('📄 Page loaded, loading saved settings...');
+      loadScriptUrl();
+      
+      // Load saved credentials
+      const savedEmail = localStorage.getItem('godown_erp_user_email');
+      const savedRole = localStorage.getItem('godown_erp_user_role');
+      
+      if (savedEmail) {
+        document.getElementById('userEmail').value = savedEmail;
+      }
+      
+      if (savedRole) {
+        document.getElementById('userRole').value = savedRole;
+      }
+    };
   </script>
 </body>
 </html>
