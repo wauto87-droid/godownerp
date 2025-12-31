@@ -943,7 +943,7 @@
     <p>🏗️ Godown ERP System - Transaction-Based Stock Control • Audit-Safe • Multi-User</p>
   </footer>
 
-  <script>
+   <script>
     // ============================================================================
     // CONFIGURATION
     // ============================================================================
@@ -961,36 +961,76 @@
       constructor(scriptUrl, userEmail) {
         this.scriptUrl = scriptUrl;
         this.userEmail = userEmail;
+        this.debug = false;
+      }
+
+      async testConnection() {
+        try {
+          console.log('🧪 Testing connection...');
+          const urlParams = new URLSearchParams({
+            action: 'getItems',
+            email: this.userEmail
+          });
+          
+          const testUrl = this.scriptUrl + '?' + urlParams.toString();
+          const response = await fetch(testUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ test: true })
+          });
+          
+          console.log('Test response status:', response.status);
+          const result = await response.json();
+          console.log('Test result:', result);
+          
+          return { success: true, result: result };
+        } catch (error) {
+          console.error('Test failed:', error);
+          return { success: false, message: error.message };
+        }
       }
 
       async request(action, data = null, params = {}) {
         try {
-          // Build URL with action and email as query parameters
+          console.log('📤 Request:', action);
+          
           const urlParams = new URLSearchParams({
             action: action,
             email: this.userEmail,
             ...params
           });
           
-          const url = this.scriptUrl + '?' + urlParams.toString();
+          let url = this.scriptUrl + '?' + urlParams.toString();
+          let requestBody = null;
+          let requestMethod = 'POST';
           
-          // Prepare request body
-          const requestBody = data ? JSON.stringify({ ...data }) : null;
+          if (data) {
+            requestBody = JSON.stringify(data);
+          } else {
+            requestMethod = 'GET';
+          }
           
-          console.log('📤 Request URL:', url);
-          console.log('📤 Request Body:', requestBody);
+          const fetchOptions = {
+            method: requestMethod,
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' }
+          };
           
-          // Make fetch request
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: requestBody
-          });
+          if (requestMethod === 'POST' && requestBody) {
+            fetchOptions.body = requestBody;
+          }
+          
+          console.log('Fetching:', url);
+          const response = await fetch(url, fetchOptions);
+          console.log('Response:', response.status);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
           
           const result = await response.json();
-          console.log('📥 Response:', result);
+          console.log('Response data:', result);
           
           if (!result.success) {
             throw new Error(result.message || 'Request failed');
@@ -998,7 +1038,7 @@
           
           return result;
         } catch (error) {
-          console.error('❌ API Error:', error);
+          console.error('❌ Request failed:', error);
           throw error;
         }
       }
@@ -1097,9 +1137,20 @@
       const urlInput = document.getElementById('scriptUrlInput');
       const url = urlInput.value.trim();
       
+      console.log('💾 Saving Script URL:', url);
+      
       if (!url) {
         alert('❌ Please enter your Google Apps Script Web App URL');
         return;
+      }
+      
+      // Basic URL validation
+      if (!url.includes('script.google.com') && !url.includes('google.com')) {
+        alert('⚠️ Warning: This URL does not look like a Google Apps Script URL.\n\nPlease copy the exact URL from:\nGoogle Apps Script → Deploy → Web App');
+      }
+      
+      if (!url.includes('/exec')) {
+        alert('⚠️ Warning: URL should end with /exec\n\nYour URL: ' + url);
       }
       
       // Save to localStorage
@@ -1110,13 +1161,10 @@
       document.getElementById('userEmail').disabled = false;
       document.getElementById('userRole').disabled = false;
       
-      // Test connection
-      alert('✅ Script URL saved! You can now login.');
-      console.log('✅ Saved Script URL:', url);
+      alert('✅ Script URL saved!\n\n💡 You can now login.');
     }
 
     function loadScriptUrl() {
-      // Try to load from localStorage first
       const savedUrl = localStorage.getItem('godown_erp_script_url');
       
       if (savedUrl) {
@@ -1128,6 +1176,45 @@
     }
 
     // ============================================================================
+    // TEST CONNECTION FUNCTION
+    // ============================================================================
+
+    async function testConnection() {
+      const url = document.getElementById('scriptUrlInput').value.trim();
+      
+      if (!url) {
+        alert('❌ Please enter your Google Apps Script Web App URL first');
+        return;
+      }
+      
+      // Show loading indicator
+      const testBtn = event.target;
+      testBtn.textContent = '🧪 Testing...';
+      testBtn.disabled = true;
+      
+      try {
+        // Create temp API instance for testing
+        const testApi = new GoogleSheetsAPI(url, 'test@example.com');
+        const result = await testApi.testConnection();
+        
+        if (result.success) {
+          alert('✅ Connection successful!\n\nYour Apps Script URL is working correctly.');
+          document.getElementById('loginBtn').disabled = false;
+          document.getElementById('userEmail').disabled = false;
+          document.getElementById('userRole').disabled = false;
+        } else {
+          alert('❌ Connection failed!\n\nError: ' + result.message + '\n\nPlease check:\n1. URL is correct\n2. Apps Script is deployed\n3. Access is set to "Anyone with Google account"');
+        }
+      } catch (error) {
+        alert('❌ Connection failed!\n\nError: ' + error.message + '\n\nPlease check console for details.');
+        console.error('Connection test error:', error);
+      }
+      
+      testBtn.textContent = '🧪 Test Connection';
+      testBtn.disabled = false;
+    }
+
+    // ============================================================================
     // AUTHENTICATION & INITIALIZATION
     // ============================================================================
 
@@ -1136,13 +1223,18 @@
       const role = document.getElementById('userRole').value;
       const url = document.getElementById('scriptUrlInput').value.trim();
 
+      console.log('🔑 Logging in...');
+      console.log('Email:', email);
+      console.log('Role:', role);
+      console.log('Script URL:', url);
+
       if (!email) {
         alert('❌ Please enter your email');
         return;
       }
 
       if (!url) {
-        alert('❌ Please enter your Google Apps Script URL');
+        alert('❌ Please enter your Google Apps Script Web App URL');
         return;
       }
 
@@ -1151,7 +1243,7 @@
       SCRIPT_URL = url;
       api = new GoogleSheetsAPI(SCRIPT_URL, email);
 
-      // Save to localStorage for next time
+      // Save to localStorage
       localStorage.setItem('godown_erp_script_url', url);
       localStorage.setItem('godown_erp_user_email', email);
       localStorage.setItem('godown_erp_user_role', role);
@@ -1170,7 +1262,6 @@
       const createTransactionBtn = document.getElementById('createTransactionBtn');
       const auditTab = document.getElementById('auditTab');
 
-      // Reset all buttons
       addItemBtn.style.display = 'none';
       createBookingBtn.style.display = 'none';
       createLoadingBtn.style.display = 'none';
@@ -1199,6 +1290,7 @@
     // ============================================================================
 
     async function loadAllData() {
+      console.log('📊 Loading all data...');
       try {
         await Promise.all([
           loadItems(),
@@ -1208,8 +1300,10 @@
           loadInventory(),
           loadAuditLog()
         ]);
+        console.log('✅ All data loaded successfully');
       } catch (error) {
         console.error('❌ Error loading data:', error);
+        alert('❌ Error loading data: ' + error.message);
       }
     }
 
@@ -1218,6 +1312,7 @@
         const result = await api.getItems();
         itemsData = result.items || [];
         populateItemSelects();
+        console.log('✅ Items loaded:', itemsData.length);
       } catch (error) {
         console.error('❌ Error loading items:', error);
       }
@@ -1230,6 +1325,7 @@
         renderBookings(bookings);
         updateStats();
         populateBookingSelect(bookings);
+        console.log('✅ Bookings loaded:', bookings.length);
       } catch (error) {
         console.error('❌ Error loading bookings:', error);
       }
@@ -1241,6 +1337,7 @@
         const loadings = result.loadings || [];
         renderLoadings(loadings);
         updateStats();
+        console.log('✅ Loadings loaded:', loadings.length);
       } catch (error) {
         console.error('❌ Error loading loadings:', error);
       }
@@ -1252,6 +1349,7 @@
         const transactions = result.transactions || [];
         renderTransactions(transactions);
         updateStats();
+        console.log('✅ Transactions loaded:', transactions.length);
       } catch (error) {
         console.error('❌ Error loading transactions:', error);
       }
@@ -1263,6 +1361,7 @@
         const inventory = result.inventory || [];
         renderInventory(inventory);
         updateStats();
+        console.log('✅ Inventory loaded:', inventory.length);
       } catch (error) {
         console.error('❌ Error loading inventory:', error);
       }
@@ -1275,6 +1374,7 @@
         const result = await api.getAuditLog();
         const logs = result.auditLogs || [];
         renderAuditLog(logs);
+        console.log('✅ Audit log loaded:', logs.length);
       } catch (error) {
         console.error('❌ Error loading audit log:', error);
       }
@@ -1508,10 +1608,14 @@
           return;
         }
         
+        console.log('🚀 Initializing system...');
         const result = await api.initialize();
+        console.log('Initialization result:', result);
+        
         alert('✅ ' + result.message);
         await loadAllData();
       } catch (error) {
+        console.error('❌ Error initializing system:', error);
         alert('❌ Error initializing system: ' + error.message);
       }
     }
@@ -1531,12 +1635,16 @@
           return;
         }
 
+        console.log('💾 Saving item:', itemData);
         const result = await api.addItem(itemData);
+        console.log('Save result:', result);
+        
         alert('✅ Item added successfully!');
         closeModal('addItemModal');
         await loadItems();
         await loadInventory();
       } catch (error) {
+        console.error('❌ Error adding item:', error);
         alert('❌ Error adding item: ' + error.message);
       }
     }
@@ -1554,12 +1662,16 @@
           return;
         }
 
+        console.log('📝 Creating booking:', bookingData);
         const result = await api.createBooking(bookingData);
+        console.log('Booking result:', result);
+        
         alert('✅ Booking created successfully!');
         closeModal('createBookingModal');
         await loadBookings();
         await loadInventory();
       } catch (error) {
+        console.error('❌ Error creating booking:', error);
         alert('❌ Error creating booking: ' + error.message);
       }
     }
@@ -1579,7 +1691,10 @@
           return;
         }
 
+        console.log('🚚 Creating loading:', loadingData);
         const result = await api.createLoading(loadingData);
+        console.log('Loading result:', result);
+        
         alert('✅ Loading created successfully! Stock updated via OUT transaction.');
         closeModal('createLoadingModal');
         await loadBookings();
@@ -1587,6 +1702,7 @@
         await loadInventory();
         await loadTransactions();
       } catch (error) {
+        console.error('❌ Error creating loading:', error);
         alert('❌ Error creating loading: ' + error.message);
       }
     }
@@ -1606,12 +1722,16 @@
           return;
         }
 
+        console.log('💳 Creating transaction:', transactionData);
         const result = await api.createTransaction(transactionData);
+        console.log('Transaction result:', result);
+        
         alert('✅ Transaction created successfully! Stock updated.');
         closeModal('createTransactionModal');
         await loadTransactions();
         await loadInventory();
       } catch (error) {
+        console.error('❌ Error creating transaction:', error);
         alert('❌ Error creating transaction: ' + error.message);
       }
     }
@@ -1702,10 +1822,9 @@
     // ============================================================================
 
     window.onload = function() {
-      console.log('📄 Page loaded, loading saved settings...');
+      console.log('📄 Page loaded');
       loadScriptUrl();
       
-      // Load saved credentials
       const savedEmail = localStorage.getItem('godown_erp_user_email');
       const savedRole = localStorage.getItem('godown_erp_user_role');
       
@@ -1716,6 +1835,8 @@
       if (savedRole) {
         document.getElementById('userRole').value = savedRole;
       }
+      
+      console.log('🎯 Ready to use!');
     };
   </script>
 </body>
