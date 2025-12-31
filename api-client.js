@@ -1,55 +1,161 @@
 // ============================================================================
-// GOOGLE SHEETS API CLIENT - FIXED
+// GOOGLE SHEETS API CLIENT - WITH CORS FIX
 // ============================================================================
 
 class GoogleSheetsAPI {
   constructor(scriptUrl, userEmail) {
     this.scriptUrl = scriptUrl;
     this.userEmail = userEmail;
+    this.debug = true; // Set to false to disable console logs
   }
 
   /**
-   * Generic request handler - FIXED VERSION
-   * Passes action in query parameter AND body
+   * Test connection to Apps Script
+   * Helps debug CORS/network issues
    */
-  async request(action, data = null, params = {}) {
+  async testConnection() {
     try {
-      // Build URL with action and email as query parameters
+      console.log('🧪 Testing connection to:', this.scriptUrl);
+      
       const urlParams = new URLSearchParams({
-        action: action,
-        email: this.userEmail,
-        ...params
+        action: 'getItems',
+        email: this.userEmail
       });
       
-      const url = this.scriptUrl + '?' + urlParams.toString();
+      const testUrl = this.scriptUrl + '?' + urlParams.toString();
       
-      // Prepare request body
-      const requestBody = data ? JSON.stringify({ ...data }) : null;
-      
-      console.log('Request URL:', url);
-      console.log('Request Body:', requestBody);
-      
-      // Make fetch request
-      const response = await fetch(url, {
+      const response = await fetch(testUrl, {
         method: 'POST',
+        mode: 'cors', // CRITICAL: Enable CORS
         headers: {
           'Content-Type': 'application/json'
         },
-        body: requestBody
+        body: JSON.stringify({ test: true })
       });
       
-      const result = await response.json();
-      console.log('Response:', result);
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Request failed');
+      if (this.debug) {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
       }
       
-      return result;
+      const result = await response.json();
+      
+      if (this.debug) {
+        console.log('Test result:', result);
+      }
+      
+      return {
+        success: true,
+        message: 'Connection successful',
+        result: result
+      };
     } catch (error) {
-      console.error('API Error:', error);
-      throw error;
+      console.error('Connection test failed:', error);
+      return {
+        success: false,
+        message: 'Connection failed: ' + error.message,
+        error: error
+      };
     }
+  }
+
+  /**
+   * Generic request handler - WITH CORS FIX
+   */
+  async request(action, data = null, params = {}) {
+    let lastError = null;
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    while (retryCount < maxRetries) {
+      try {
+        if (this.debug) {
+          console.log(`📤 Request attempt ${retryCount + 1}:`, action);
+        }
+        
+        // Build URL with query parameters
+        const urlParams = new URLSearchParams({
+          action: action,
+          email: this.userEmail,
+          ...params
+        });
+        
+        let url = this.scriptUrl + '?' + urlParams.toString();
+        
+        // Prepare request body
+        let requestBody = null;
+        let requestMethod = 'POST';
+        
+        if (data) {
+          requestBody = JSON.stringify(data);
+        } else {
+          // For simple requests without data body, use GET
+          requestMethod = 'GET';
+        }
+        
+        if (this.debug) {
+          console.log('Request URL:', url);
+          console.log('Request Method:', requestMethod);
+          console.log('Request Body:', requestBody);
+        }
+        
+        // Make fetch request with CORS support
+        const fetchOptions = {
+          method: requestMethod,
+          mode: 'cors', // CRITICAL: This enables CORS
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        };
+        
+        // Only add body for POST requests
+        if (requestMethod === 'POST' && requestBody) {
+          fetchOptions.body = requestBody;
+        }
+        
+        const response = await fetch(url, fetchOptions);
+        
+        if (this.debug) {
+          console.log('Response Status:', response.status);
+          console.log('Response OK:', response.ok);
+        }
+        
+        // Check for network errors
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (this.debug) {
+          console.log('Response Data:', result);
+        }
+        
+        // Check for API errors
+        if (!result.success) {
+          throw new Error(result.message || 'API returned error');
+        }
+        
+        return result;
+        
+      } catch (error) {
+        console.error(`❌ Request attempt ${retryCount + 1} failed:`, error);
+        lastError = error;
+        retryCount++;
+        
+        // Wait before retry (exponential backoff)
+        if (retryCount < maxRetries) {
+          const waitTime = Math.pow(2, retryCount) * 500; // 500ms, 1000ms, 2000ms
+          console.log(`⏳ Retrying in ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+    
+    // All retries failed
+    console.error('💥 All retries failed. Last error:', lastError);
+    
+    throw lastError || new Error('Request failed after multiple attempts');
   }
 
   // ============================================================================
